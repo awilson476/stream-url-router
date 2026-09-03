@@ -1,0 +1,22 @@
+{
+  "name": "stream-url-router",
+  "version": "0.1.0",
+  "description": "A small path-matching router with a CLI that matches URLs from stdin one line at a time",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "route-match": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "license": "MIT",
+  "author": "awilson476",
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
