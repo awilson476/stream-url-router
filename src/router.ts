@@ -4,7 +4,7 @@
 
 export type Segment =
   | { type: "static"; value: string }
-  | { type: "param"; name: string }
+  | { type: "param"; name: string; constraint?: RegExp }
   | { type: "wildcard" };
 
 export interface CompiledRoute {
@@ -30,11 +30,28 @@ function compilePattern(pattern: string): Segment[] {
       }
       segments.push({ type: "wildcard" });
     } else if (part.startsWith(":")) {
-      const name = part.slice(1);
-      if (name.length === 0) {
+      // :name or :name(constraint), e.g. :id(\d+). The constraint is a
+      // regex fragment tested against the raw (still-encoded) segment,
+      // anchored on both ends so ":id(\d+)" can't match "12abc".
+      const match = /^:([^():]+)(?:\((.+)\))?$/.exec(part);
+      if (match === null || match[1] === undefined || match[1].length === 0) {
         throw new Error(`empty param name in "${pattern}"`);
       }
-      segments.push({ type: "param", name });
+      const name = match[1];
+      const constraintSource = match[2];
+
+      let constraint: RegExp | undefined;
+      if (constraintSource !== undefined) {
+        try {
+          constraint = new RegExp(`^(?:${constraintSource})$`);
+        } catch (err) {
+          throw new Error(
+            `invalid constraint in "${pattern}": ${String(err)}`,
+          );
+        }
+      }
+
+      segments.push({ type: "param", name, constraint });
     } else {
       segments.push({ type: "static", value: part });
     }
@@ -102,6 +119,9 @@ function matchSegments(
         return null;
       }
     } else {
+      if (segment.constraint !== undefined && !segment.constraint.test(part)) {
+        return null;
+      }
       params[segment.name] = decodeURIComponent(part);
     }
   }

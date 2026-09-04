@@ -35,6 +35,19 @@ router.match("/nope");
 // null
 ```
 
+Param segments can carry a regex constraint in parentheses. The constraint
+is tested against the raw segment and the whole segment must match it:
+
+```ts
+router.add("user-profile", "/users/:id(\\d+)");
+
+router.match("/users/42");
+// { name: "user-profile", pattern: "/users/:id(\\d+)", params: { id: "42" } }
+
+router.match("/users/not-a-number");
+// null - falls through to the next route, or null if there isn't one
+```
+
 Routes are matched in the order they were added, first match wins - the
 same rule most web frameworks use. Put more specific routes before more
 general ones.
@@ -43,6 +56,8 @@ Pattern syntax:
 
 - `users` - literal segment, must match exactly
 - `:id` - param segment, matches any single segment and captures it
+- `:id(\d+)` - param segment with a regex constraint; only matches if the
+  whole segment matches the constraint
 - `*` - wildcard, must be the last segment, captures everything after it
 
 `match()` also accepts a full URL string, not just a path - it strips the
@@ -87,6 +102,6 @@ nothing to install first beyond a TypeScript toolchain.
 
 ## Status
 
-Early. The matcher handles static, param, and trailing-wildcard segments;
-it doesn't yet do regex constraints on params, optional segments, or
-route priority beyond insertion order.
+Early. The matcher handles static, param (with optional regex
+constraints), and trailing-wildcard segments; it doesn't yet do optional
+segments or route priority beyond insertion order.
