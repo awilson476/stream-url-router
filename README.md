@@ -48,6 +48,18 @@ router.match("/users/not-a-number");
 // null - falls through to the next route, or null if there isn't one
 ```
 
+A trailing `?` on a segment makes it optional:
+
+```ts
+router.add("post", "/posts/:id/:format?");
+
+router.match("/posts/9/json");
+// { name: "post", pattern: "/posts/:id/:format?", params: { id: "9", format: "json" } }
+
+router.match("/posts/9");
+// { name: "post", pattern: "/posts/:id/:format?", params: { id: "9" } }
+```
+
 Routes are matched in the order they were added, first match wins - the
 same rule most web frameworks use. Put more specific routes before more
 general ones.
@@ -58,6 +70,8 @@ Pattern syntax:
 - `:id` - param segment, matches any single segment and captures it
 - `:id(\d+)` - param segment with a regex constraint; only matches if the
   whole segment matches the constraint
+- `:id?` / `users?` - trailing `?` makes a param or literal segment
+  optional
 - `*` - wildcard, must be the last segment, captures everything after it
 
 `match()` also accepts a full URL string, not just a path - it strips the
@@ -103,5 +117,5 @@ nothing to install first beyond a TypeScript toolchain.
 ## Status
 
 Early. The matcher handles static, param (with optional regex
-constraints), and trailing-wildcard segments; it doesn't yet do optional
-segments or route priority beyond insertion order.
+constraints and optional segments), and trailing-wildcard segments; it
+doesn't yet do route priority beyond insertion order.
