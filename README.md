@@ -114,6 +114,15 @@ npm run build
 Compiles `src/` to `dist/` with `tsc`. No runtime dependencies, so there's
 nothing to install first beyond a TypeScript toolchain.
 
+## Testing
+
+```sh
+npm test
+```
+
+Compiles the project and runs the matcher tests with Node's built-in test
+runner (`node --test`) - no test framework dependency needed.
+
 ## Status
 
 Early. The matcher handles static, param (with optional regex
