@@ -6,6 +6,7 @@
 
 import { createInterface } from "node:readline";
 import { readFileSync } from "node:fs";
+import { once } from "node:events";
 import { Router } from "./router.js";
 
 interface RouteConfig {
@@ -50,6 +51,20 @@ function pathOf(line: string): string {
   }
 }
 
+// process.stdout.write() returns false once the internal buffer is full and
+// queues the chunk instead of writing it right away. Ignoring that return
+// value means a slow consumer downstream (a pipe into `sort`, a network
+// socket, whatever) never applies backpressure, and readline keeps handing
+// us lines as fast as it can read them - the write buffer grows without
+// bound and we end up buffering the whole input in memory after all.
+// Waiting for "drain" before asking readline for the next line caps memory
+// at roughly one buffer's worth regardless of how slow the consumer is.
+async function writeLine(line: string): Promise<void> {
+  if (!process.stdout.write(line)) {
+    await once(process.stdout, "drain");
+  }
+}
+
 async function main(): Promise<void> {
   const { routesPath } = parseArgs(process.argv.slice(2));
   const router = loadRouter(routesPath);
@@ -67,7 +82,7 @@ async function main(): Promise<void> {
       ? { input: trimmed, matched: true, ...result }
       : { input: trimmed, matched: false };
 
-    process.stdout.write(JSON.stringify(output) + "\n");
+    await writeLine(JSON.stringify(output) + "\n");
   }
 }
 

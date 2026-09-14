@@ -105,6 +105,10 @@ Each input line produces exactly one output line, so it plays nicely with
 or full URLs (`https://example.com/users/42` works the same as
 `/users/42`).
 
+Writes respect backpressure: if the downstream consumer (a pipe, a slow
+network socket) can't keep up, `route-match` waits for it to drain before
+reading the next line instead of piling output up in memory.
+
 ## Building
 
 ```sh
