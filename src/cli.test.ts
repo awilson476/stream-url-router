@@ -98,3 +98,44 @@ test("missing --routes prints usage on stderr and exits non-zero", async () => {
   assert.notEqual(code, 0);
   assert.match(stderr, /usage: route-match/);
 });
+
+function writeRoutesFileWith(contents: string): string {
+  const dir = mkdtempSync(join(tmpdir(), "route-match-test-"));
+  const routesPath = join(dir, "routes.json");
+  writeFileSync(routesPath, contents);
+  return routesPath;
+}
+
+test("routes file that isn't a JSON array fails with a clear message", async () => {
+  const routesPath = writeRoutesFileWith(
+    JSON.stringify({ name: "user-profile", pattern: "/users/:id" }),
+  );
+  const { stderr, code } = await run(["--routes", routesPath], "");
+  assert.notEqual(code, 0);
+  assert.match(stderr, /must contain a JSON array/);
+});
+
+test("route entry missing a name or pattern fails with a clear message", async () => {
+  const routesPath = writeRoutesFileWith(
+    JSON.stringify([{ name: "user-profile" }]),
+  );
+  const { stderr, code } = await run(["--routes", routesPath], "");
+  assert.notEqual(code, 0);
+  assert.match(stderr, /needs a string "name" and "pattern"/);
+});
+
+test("invalid route pattern fails with a clear message naming the route", async () => {
+  const routesPath = writeRoutesFileWith(
+    JSON.stringify([{ name: "bad", pattern: "/*/users" }]),
+  );
+  const { stderr, code } = await run(["--routes", routesPath], "");
+  assert.notEqual(code, 0);
+  assert.match(stderr, /route "bad"/);
+});
+
+test("malformed JSON in the routes file fails with a clear message", async () => {
+  const routesPath = writeRoutesFileWith("not json");
+  const { stderr, code } = await run(["--routes", routesPath], "");
+  assert.notEqual(code, 0);
+  assert.match(stderr, /is not valid JSON/);
+});

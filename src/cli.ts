@@ -31,14 +31,44 @@ function parseArgs(argv: string[]): { routesPath: string } {
   return { routesPath: argv[flagIndex + 1] as string };
 }
 
+function isRouteConfig(value: unknown): value is RouteConfig {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as Record<string, unknown>).name === "string" &&
+    typeof (value as Record<string, unknown>).pattern === "string"
+  );
+}
+
 function loadRouter(routesPath: string): Router {
   const raw = readFileSync(routesPath, "utf8");
-  const configs = JSON.parse(raw) as RouteConfig[];
+
+  let configs: unknown;
+  try {
+    configs = JSON.parse(raw);
+  } catch (err) {
+    throw new Error(`${routesPath} is not valid JSON: ${String(err)}`);
+  }
+
+  if (!Array.isArray(configs)) {
+    throw new Error(`${routesPath} must contain a JSON array of routes`);
+  }
 
   const router = new Router();
-  for (const config of configs) {
-    router.add(config.name, config.pattern);
-  }
+  configs.forEach((config: unknown, index: number) => {
+    if (!isRouteConfig(config)) {
+      throw new Error(
+        `${routesPath}: route at index ${index} needs a string "name" and "pattern"`,
+      );
+    }
+    try {
+      router.add(config.name, config.pattern);
+    } catch (err) {
+      throw new Error(
+        `${routesPath}: route "${config.name}": ${String(err)}`,
+      );
+    }
+  });
   return router;
 }
 
