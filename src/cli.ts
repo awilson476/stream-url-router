@@ -5,7 +5,12 @@
 // result out before asking for the next line.
 
 import { createInterface } from "node:readline";
-import { readFileSync } from "node:fs";
+import {
+  readFileSync,
+  createReadStream,
+  accessSync,
+  constants as fsConstants,
+} from "node:fs";
 import { once } from "node:events";
 import { Router } from "./router.js";
 
@@ -16,19 +21,29 @@ interface RouteConfig {
 
 function usage(): never {
   process.stderr.write(
-    "usage: route-match --routes <routes.json>\n" +
-      "  reads URLs or paths from stdin, one per line, and writes a\n" +
-      "  JSON match result per line to stdout\n",
+    "usage: route-match --routes <routes.json> [--urls <urls.txt>]\n" +
+      "  reads URLs or paths one per line - from the --urls file if given,\n" +
+      "  otherwise from stdin - and writes a JSON match result per line to\n" +
+      "  stdout\n",
   );
   process.exit(1);
 }
 
-function parseArgs(argv: string[]): { routesPath: string } {
-  const flagIndex = argv.indexOf("--routes");
-  if (flagIndex === -1 || argv[flagIndex + 1] === undefined) {
+function parseArgs(argv: string[]): { routesPath: string; urlsPath: string | undefined } {
+  const routesIndex = argv.indexOf("--routes");
+  if (routesIndex === -1 || argv[routesIndex + 1] === undefined) {
     usage();
   }
-  return { routesPath: argv[flagIndex + 1] as string };
+
+  const urlsIndex = argv.indexOf("--urls");
+  if (urlsIndex !== -1 && argv[urlsIndex + 1] === undefined) {
+    usage();
+  }
+
+  return {
+    routesPath: argv[routesIndex + 1] as string,
+    urlsPath: urlsIndex === -1 ? undefined : (argv[urlsIndex + 1] as string),
+  };
 }
 
 function isRouteConfig(value: unknown): value is RouteConfig {
@@ -96,10 +111,25 @@ async function writeLine(line: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const { routesPath } = parseArgs(process.argv.slice(2));
+  const { routesPath, urlsPath } = parseArgs(process.argv.slice(2));
   const router = loadRouter(routesPath);
 
-  const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
+  // createReadStream, like stdin, hands data over in chunks rather than
+  // all at once, so pointing --urls at a multi-gigabyte file keeps the
+  // same flat memory profile as piping it through stdin. A missing or
+  // unreadable file is checked up front - once the stream is handed to
+  // readline, an "error" event closes the interface without one, which
+  // would make the CLI exit 0 having silently matched nothing.
+  let input: NodeJS.ReadableStream = process.stdin;
+  if (urlsPath !== undefined) {
+    try {
+      accessSync(urlsPath, fsConstants.R_OK);
+    } catch (err) {
+      throw new Error(`cannot read --urls file ${urlsPath}: ${String(err)}`);
+    }
+    input = createReadStream(urlsPath);
+  }
+  const rl = createInterface({ input, crlfDelay: Infinity });
 
   for await (const line of rl) {
     const trimmed = line.trim();

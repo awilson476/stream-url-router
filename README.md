@@ -105,6 +105,17 @@ Each input line produces exactly one output line, so it plays nicely with
 or full URLs (`https://example.com/users/42` works the same as
 `/users/42`).
 
+If the URLs live in a file rather than being piped in, point `--urls` at
+it instead of using stdin:
+
+```sh
+route-match --routes routes.json --urls access-log-urls.txt
+```
+
+It's read the same way stdin is - line by line, without loading the file
+into memory first - so this works the same for a ten-line file and a
+multi-gigabyte one.
+
 Writes respect backpressure: if the downstream consumer (a pipe, a slow
 network socket) can't keep up, `route-match` waits for it to drain before
 reading the next line instead of piling output up in memory.

@@ -93,6 +93,58 @@ test("built CLI matches routes end to end over stdin/stdout", async () => {
   });
 });
 
+test("--urls reads paths from a file instead of stdin", async () => {
+  const routesPath = writeRoutesFile();
+  const dir = mkdtempSync(join(tmpdir(), "route-match-test-"));
+  const urlsPath = join(dir, "urls.txt");
+  writeFileSync(urlsPath, "/users/42\n/nope\n");
+
+  const { stdout, stderr, code } = await run(
+    ["--routes", routesPath, "--urls", urlsPath],
+    "",
+  );
+
+  assert.equal(stderr, "");
+  assert.equal(code, 0);
+
+  const lines = stdout.trim().split("\n");
+  assert.deepEqual(JSON.parse(lines[0] as string), {
+    input: "/users/42",
+    matched: true,
+    name: "user-profile",
+    pattern: "/users/:id",
+    params: { id: "42" },
+  });
+  assert.deepEqual(JSON.parse(lines[1] as string), {
+    input: "/nope",
+    matched: false,
+  });
+});
+
+test("--urls pointing at a missing file fails with a clear message", async () => {
+  const routesPath = writeRoutesFile();
+  const dir = mkdtempSync(join(tmpdir(), "route-match-test-"));
+  const urlsPath = join(dir, "does-not-exist.txt");
+
+  const { stderr, code } = await run(
+    ["--routes", routesPath, "--urls", urlsPath],
+    "",
+  );
+
+  assert.notEqual(code, 0);
+  assert.match(stderr, /cannot read --urls file/);
+});
+
+test("--urls without a value prints usage on stderr and exits non-zero", async () => {
+  const routesPath = writeRoutesFile();
+  const { stderr, code } = await run(
+    ["--routes", routesPath, "--urls"],
+    "",
+  );
+  assert.notEqual(code, 0);
+  assert.match(stderr, /usage: route-match/);
+});
+
 test("missing --routes prints usage on stderr and exits non-zero", async () => {
   const { stderr, code } = await run([], "");
   assert.notEqual(code, 0);
